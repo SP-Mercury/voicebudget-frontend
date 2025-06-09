@@ -1,8 +1,8 @@
-import React from "react";
-import VoiceBudgetApp from "./components/VoiceBudgetApp";
+import React from 'react';
+import VoiceUploader from './components/VoiceUploader';
 
 function App() {
-  return <VoiceBudgetApp />;
+  return <VoiceUploader />;
 }
 
 export default App;
