@@ -50,7 +50,7 @@ const VoiceBudgetApp = () => {
   const uploadAudio = async (blob) => {
     const formData = new FormData();
     formData.append('file', blob, 'voice.webm');
-    const res = await axios.post('http://192.168.88.178:8080/api/upload', formData);
+    const res = await axios.post('https://voicebudget-backend.onrender.com/api/upload', formData);
     setResponse(res.data);
     fetchRecords();
   };
@@ -60,7 +60,7 @@ const VoiceBudgetApp = () => {
     if (year) params.year = year;
     if (month) params.month = month;
     if (day) params.day = day;
-    const res = await axios.get('http://192.168.88.178:8080/api/records/summary', { params });
+    const res = await axios.get('https://voicebudget-backend.onrender.com/api/records/summary', { params });
     setRecords(res.data.records || []);
     setIncome(res.data.income || 0);
     setExpense(res.data.expense || 0);
@@ -70,7 +70,7 @@ const VoiceBudgetApp = () => {
   const saveEdit = async (id) => {
     try {
       const fullTime = new Date(`${editData.time}T12:00`).toISOString();
-      await axios.put(`http://192.168.88.178:8080/api/records/${id}`, {
+      await axios.put(`https://voicebudget-backend.onrender.com/api/records/${id}`, {
         ...editData,
         time: fullTime
       });
@@ -83,7 +83,7 @@ const VoiceBudgetApp = () => {
 
   const deleteRecord = async (id) => {
     if (window.confirm('確定要刪除這筆記錄嗎？')) {
-      await axios.delete(`http://192.168.88.178:8080/api/records/${id}`);
+      await axios.delete(`https://voicebudget-backend.onrender.com/api/records/${id}`);
       fetchRecords();
     }
   };
