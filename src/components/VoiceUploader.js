@@ -1,4 +1,3 @@
-// VoiceBudgetApp.js - 圖表收入/支出分線版 + 時間排序 + UI 完整整合
 import React, { useRef, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -28,6 +27,12 @@ const VoiceBudgetApp = () => {
   const [editing, setEditing] = useState(null);
   const [editData, setEditData] = useState({});
 
+  // 手動記帳狀態
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualAmount, setManualAmount] = useState('');
+  const [manualCategory, setManualCategory] = useState('飲食');
+  const [manualType, setManualType] = useState('支出');
+
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const recorder = new MediaRecorder(stream);
@@ -50,7 +55,7 @@ const VoiceBudgetApp = () => {
   const uploadAudio = async (blob) => {
     const formData = new FormData();
     formData.append('file', blob, 'voice.webm');
-    const res = await axios.post('https://voicebudget-backend.onrender.com/api/upload', formData);
+    const res = await axios.post('https://being-kidney-imaging-towns.trycloudflare.com/api/upload', formData);
     setResponse(res.data);
     fetchRecords();
   };
@@ -60,7 +65,7 @@ const VoiceBudgetApp = () => {
     if (year) params.year = year;
     if (month) params.month = month;
     if (day) params.day = day;
-    const res = await axios.get('https://voicebudget-backend.onrender.com/api/records/summary', { params });
+    const res = await axios.get('https://being-kidney-imaging-towns.trycloudflare.com/api/records/summary', { params });
     setRecords(res.data.records || []);
     setIncome(res.data.income || 0);
     setExpense(res.data.expense || 0);
@@ -69,8 +74,8 @@ const VoiceBudgetApp = () => {
 
   const saveEdit = async (id) => {
     try {
-      const fullTime = new Date(`${editData.time}T12:00`).toISOString();
-      await axios.put(`https://voicebudget-backend.onrender.com/api/records/${id}`, {
+      const fullTime = new Date(`${editData.time}`).toISOString(); // 確保時間包括小時與分鐘
+      await axios.put(`https://being-kidney-imaging-towns.trycloudflare.com/api/records/${id}`, {
         ...editData,
         time: fullTime
       });
@@ -83,21 +88,24 @@ const VoiceBudgetApp = () => {
 
   const deleteRecord = async (id) => {
     if (window.confirm('確定要刪除這筆記錄嗎？')) {
-      await axios.delete(`https://voicebudget-backend.onrender.com/api/records/${id}`);
+      await axios.delete(`https://being-kidney-imaging-towns.trycloudflare.com/api/records/${id}`);
       fetchRecords();
     }
   };
 
   const handleEdit = (record) => {
     setEditing(record.id);
-    setEditData({ ...record, time: record.time.substring(0, 10) });
+    setEditData({ ...record, time: record.time.substring(0, 10) }); // 只顯示日期部分
   };
 
   const handleChange = (key, value) => {
     setEditData({ ...editData, [key]: value });
   };
 
-  const formatTime = (iso) => new Date(iso).toLocaleString('zh-TW');
+  const formatDate = (iso) => {
+    const date = new Date(iso);
+    return date.toLocaleDateString('zh-TW'); // 只顯示日期部分 (例如: 2025/06/10)
+  };
 
   const chartData = records.reduce((acc, r) => {
     const entry = acc.find(e => e.name === r.category);
@@ -114,6 +122,32 @@ const VoiceBudgetApp = () => {
       map[date][r.type] += r.amount;
     });
     return Object.values(map).sort((a, b) => new Date(a.date) - new Date(b.date));
+  };
+
+  // 手動記帳提交
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    if (!manualDescription || !manualAmount || isNaN(manualAmount)) {
+      alert("請填寫所有欄位，並確保金額是數字");
+      return;
+    }
+
+    const newRecord = {
+      description: manualDescription,
+      amount: parseFloat(manualAmount),
+      category: manualCategory,
+      type: manualType,
+      time: new Date().toISOString(),
+    };
+
+    try {
+      await axios.post('https://being-kidney-imaging-towns.trycloudflare.com/api/records', newRecord);
+      fetchRecords(); // 更新記錄列表
+      setManualDescription('');
+      setManualAmount('');
+    } catch (err) {
+      alert("❌ 添加記錄失敗");
+    }
   };
 
   return (
@@ -183,6 +217,53 @@ const VoiceBudgetApp = () => {
         </LineChart>
       </div>
 
+      {/* 手動記帳表單 */}
+      <div style={{ marginBottom: 20 }}>
+        <h3>📝 手動記帳</h3>
+        <form onSubmit={handleManualSubmit}>
+          <div>
+            <input
+              type="text"
+              placeholder="描述"
+              value={manualDescription}
+              onChange={(e) => setManualDescription(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <input
+              type="number"
+              placeholder="金額"
+              value={manualAmount}
+              onChange={(e) => setManualAmount(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <select
+              value={manualCategory}
+              onChange={(e) => setManualCategory(e.target.value)}
+              required
+            >
+              {['飲食', '交通', '娛樂', '購物', '其他'].map((category) => (
+                <option key={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              value={manualType}
+              onChange={(e) => setManualType(e.target.value)}
+              required
+            >
+              <option value="支出">支出</option>
+              <option value="收入">收入</option>
+            </select>
+          </div>
+          <button type="submit">儲存</button>
+        </form>
+      </div>
+
       <h3>📋 記錄清單</h3>
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {records.map(r => (
@@ -203,7 +284,7 @@ const VoiceBudgetApp = () => {
               </>
             ) : (
               <>
-                <p><b>{r.description}</b> - {r.amount} 元 - {r.category} - {r.type} - {formatTime(r.time)}</p>
+                <p><b>{r.description}</b> - {r.amount} 元 - {r.category} - {r.type} - {formatDate(r.time)}</p>
                 <button onClick={() => handleEdit(r)}>✏️ 編輯</button>
                 <button onClick={() => deleteRecord(r.id)}>🗑 刪除</button>
               </>
